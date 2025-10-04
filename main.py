@@ -55,11 +55,29 @@ def gen(file: str,
     with open(file, "r") as f:
         content = f.read()
     api = load(content, SafeLoader)
+    extends = api["inherits"]
+    lock_data = None
+    dep_exists = False
+    if Path("blox-api-gen.lock").exists():
+        with open("blox-api-gen.lock", "r") as f:
+            lock_data = json.loads(f.read())
+    if not len(extends) == 0:
+        if lock_data is not None:
+            try:
+                lock_data[extends[0]]
+                dep_exists = True
+            except KeyError:
+                rprint(f"[red]Class file for {extends} is missing.[/red]")
+    else:
+        dep_exists = True
+    if not dep_exists:
+        return None
     env = jinja2.Environment(loader=jinja2.FileSystemLoader("templates/"))
     template = env.get_template("class.luau.jinja")
     context = {
         "name": api["name"],
         "methods": api["methods"],
+        "inherits": extends,
         "dummy_error": dummy_error
     }
     with open(f"{api["name"]}.luau", "w") as f:
