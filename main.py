@@ -5,8 +5,12 @@ import json
 import typer
 from typing_extensions import Annotated
 
+from rich import print as rprint
+
 import requests
 import jinja2
+
+import sys
 
 from yaml import load
 try:
@@ -23,20 +27,30 @@ def fetch(gen: str):
     with open(f"{gen}.yaml", "wb") as f:
         f.write(content)
 
-def lock(rblx_class: str, file: str):
+def lock_func(rblx_class: str, file: str):
     if not Path("blox-api-gen.lock").exists():
         with open("blox-api-gen.lock", "w") as f:
             f.write("{}")
     with open("blox-api-gen.lock", "r+") as f:
         lock_file = json.loads(f.read())
         lock_file["note"] = "This file was written by blox-api-gen and should not be hand edited."
-        lock_file[rblx_class] = file
+        file_path = Path(file)
+        lock_file[rblx_class] = str(file_path)
         f.seek(0)
         f.write(json.dumps(lock_file))
         f.truncate()
 
 @app.command()
-def gen(file: str, dummy_error: Annotated[bool, typer.Option("--dummy_error",help="Raises an error instead of printing a message")] = False):
+def lock(rblx_class: str, file: str):
+    if not Path(file).exists():
+        rprint("[red]File does not exist.[/red]", file=sys.stderr)
+        return None
+    lock_func(rblx_class, file)
+
+@app.command()
+def gen(file: str,
+        dummy_error: Annotated[bool, typer.Option("--dummy-error", help="Raises an error instead of printing a message")] = False,
+        no_lock: Annotated[bool, typer.Option("--no-lock", help="Prevents editing (or creation) of an blox-gen-api.lock file")] = False):
     content = ""
     with open(file, "r") as f:
         content = f.read()
@@ -45,13 +59,13 @@ def gen(file: str, dummy_error: Annotated[bool, typer.Option("--dummy_error",hel
     template = env.get_template("class.luau.jinja")
     context = {
         "name": api["name"],
-        "props": api["properties"],
         "methods": api["methods"],
         "dummy_error": dummy_error
     }
     with open(f"{api["name"]}.luau", "w") as f:
         f.write(template.render(context))
-    lock(api["name"], f"{api["name"]}.luau")
+    if not no_lock:
+        lock_func(api["name"], f"{str(Path(file))}.luau")
 
 if __name__ == "__main__":
     app()
