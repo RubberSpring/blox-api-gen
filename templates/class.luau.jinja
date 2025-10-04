@@ -1,0 +1,20 @@
+local {{ name }} = {}
+
+{%- for prop in props -%}
+{% set prop_name = prop.name.split(".") %}
+{% if "Deprecated" not in prop.tags %}
+{{ name }}.{{ prop_name[1] }} = {% if prop.type == "string" %}""{% elif prop.type == "number" %}0{% elif prop.type == "boolean" %}false{% endif %}
+{%- endif -%}
+{%- endfor -%}
+
+{% for method in methods %}
+{% set method_name = method.name.split(":") %}
+{%- set method_params = method.parameters -%}
+function {{ name }}:{{ method_name[1] }}({% if method_params|length == 1%}{{ method_params[0].name }}{% else %}{% for param in method_params %}{% if loop.index == method_params|length %}{{ param.name}}{% else %}{{ param.name }},{% endif %}{% endfor %}{% endif %})
+    {% if dummy_error %}
+    error("function {{ method.name }} is not implemented!")
+    {% else %}
+    print("function {{ method.name }} is not implemented!")
+    {% endif %}
+end
+{% endfor %}
